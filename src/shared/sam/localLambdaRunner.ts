@@ -92,8 +92,7 @@ export async function makeInputTemplate(config: SamLaunchRequestArgs): Promise<s
     let inputTemplatePath: string
     const resourceName = makeResourceName(config)
 
-    // use existing template to create a temporary template with a resource that has an overridden handler name.
-    // this is necessary for Python, which overrides the handler name due to the debug file.
+    // use existing template to create a temporary template
     if (config.invokeTarget.target === 'template') {
         const template = getTemplate(config.workspaceFolder, config)
         const templateResource = getTemplateResource(config.workspaceFolder, config)
@@ -102,23 +101,18 @@ export async function makeInputTemplate(config: SamLaunchRequestArgs): Promise<s
             throw new Error('Resource not found in base template')
         }
 
-        const resourceWithOverriddenHandler = {
-            ...templateResource,
-            Properties: {
-                ...templateResource.Properties!,
-                Handler: config.handlerName,
-            },
-        }
+        // We make a copy as to not mutate the template registry version
+        // TODO remove the template registry? make it return non-mutatable things?
+        const templateClone = { ...template }
 
-        newTemplate = new SamTemplateGenerator(template).withTemplateResources({
-            [resourceName]: resourceWithOverriddenHandler,
-        })
+        // TODO fix this API, withTemplateResources is required (with a runtime error), but if we pass in a template why do we need it?
+        newTemplate = new SamTemplateGenerator(templateClone).withTemplateResources(templateClone.Resources!)
 
         // template type uses the template dir and a throwaway template name so we can use existing relative paths
         // clean this one up manually; we don't want to accidentally delete the workspace dir
         inputTemplatePath = path.join(path.dirname(config.templatePath), 'app___vsctk___template.yaml')
-        // code type - generate ephemeral SAM template
     } else {
+        // code type - generate ephemeral SAM template
         newTemplate = new SamTemplateGenerator()
             .withFunctionHandler(config.handlerName)
             .withResourceName(resourceName)
@@ -232,12 +226,11 @@ export async function invokeLambdaFunction(
         dockerNetwork: config.sam?.dockerNetwork,
         debugPort: !config.noDebug ? config.debugPort?.toString() : undefined,
         debuggerPath: config.debuggerPath,
+        debugArgs: config.debugArgs,
         extraArgs: config.sam?.localArguments,
         parameterOverrides: config.parameterOverrides,
         skipPullImage: config.sam?.skipNewImageCheck,
     }
-
-    delete config.invokeTarget // Must not be used beyond this point.
 
     const command = new SamCliLocalInvokeInvocation(localInvokeArgs)
 
