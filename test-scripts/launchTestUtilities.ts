@@ -4,6 +4,7 @@
  */
 
 import * as child_process from 'child_process'
+import { platform as osPlatform } from 'os'
 import * as path from 'path'
 import { downloadAndUnzipVSCode, resolveCliPathFromVSCodeExecutablePath } from 'vscode-test'
 
@@ -31,7 +32,8 @@ export async function setupVSCodeTestInstance(): Promise<string> {
     }
 
     console.log(`Setting up VS Code test instance, version: ${vsCodeVersion}`)
-    const vsCodeExecutablePath = await downloadAndUnzipVSCode(vsCodeVersion)
+    const platform = osPlatform() === 'win32' ? 'win32-x64-archive' : undefined
+    const vsCodeExecutablePath = await downloadAndUnzipVSCode(vsCodeVersion, platform)
     console.log(`VS Code test instance location: ${vsCodeExecutablePath}`)
     console.log(await invokeVSCodeCli(vsCodeExecutablePath, ['--version']))
 
